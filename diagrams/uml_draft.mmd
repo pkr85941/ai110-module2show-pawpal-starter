@@ -1,0 +1,49 @@
+classDiagram
+    class Owner {
+        +String name
+        +int available_minutes
+        +set_availability(minutes: int) void
+        +summary() String
+    }
+
+    class Pet {
+        +String name
+        +String breed
+        +String species
+        +summary() String
+    }
+
+    class Task {
+        +String name
+        +int duration_minutes
+        +String priority
+        +String category
+        +bool recurring
+        +is_high_priority() bool
+        +__repr__() String
+    }
+
+    class Scheduler {
+        +Owner owner
+        +Pet pet
+        +List tasks
+        +DailyPlan schedule
+        +add_task(task: Task) void
+        +remove_task(task: Task) void
+        +generate_plan() DailyPlan
+        +explain_plan() String
+    }
+
+    class DailyPlan {
+        +String date
+        +List slots
+        +int total_time_used
+        +List skipped_tasks
+        +display() void
+        +summary() String
+    }
+
+    Scheduler "1" --> "1" Owner : belongs to
+    Scheduler "1" --> "1" Pet : cares for
+    Scheduler "1" --> "many" Task : manages
+    Scheduler "1" --> "1" DailyPlan : produces
