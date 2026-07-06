@@ -1,11 +1,26 @@
 from __future__ import annotations
+import dataclasses
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Literal
 
 Priority = Literal["high", "medium", "low"]
 Category = Literal["walk", "feed", "meds", "grooming", "enrichment", "other"]
+Frequency = Literal["daily", "weekly", "once"]
 
 _PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+
+
+def _hhmm_to_minutes(t: str) -> int:
+    """Convert a HH:MM string to a total-minutes integer."""
+    h, m = map(int, t.split(":"))
+    return h * 60 + m
+
+
+def _add_minutes(time_str: str, minutes: int) -> str:
+    """Advance a HH:MM string by the given number of minutes."""
+    total = _hhmm_to_minutes(time_str) + minutes
+    return f"{total // 60:02d}:{total % 60:02d}"
 
 
 @dataclass
@@ -14,12 +29,18 @@ class Task:
     duration_minutes: int
     priority: Priority = "medium"
     category: Category = "other"
-    recurring: bool = True
+    frequency: Frequency = "daily"
+    due_date: str = ""
     completed: bool = False
 
-    def mark_complete(self) -> None:
-        """Mark this task as done for today."""
+    def mark_complete(self, today: str = "") -> Task | None:
+        """Mark done and return the next Task instance if the task recurs, else None."""
         self.completed = True
+        if self.frequency == "once":
+            return None
+        base = date.fromisoformat(today) if today else date.today()
+        delta = timedelta(days=1) if self.frequency == "daily" else timedelta(weeks=1)
+        return dataclasses.replace(self, completed=False, due_date=str(base + delta))
 
     def is_high_priority(self) -> bool:
         """Return True if this task has high priority."""
@@ -73,25 +94,23 @@ class Owner:
         return f"{self.name} — {len(self.pets)} pet(s), {self.available_minutes} min available today"
 
 
-def _add_minutes(time_str: str, minutes: int) -> str:
-    """Advance a HH:MM string by the given number of minutes."""
-    h, m = map(int, time_str.split(":"))
-    total = h * 60 + m + minutes
-    return f"{total // 60:02d}:{total % 60:02d}"
-
-
 @dataclass
 class DailyPlan:
     date: str
     owner_name: str = ""
     start_time: str = "08:00"
-    slots: list[tuple[str, Pet, Task]] = field(default_factory=list)  # (HH:MM, Pet, Task)
+    slots: list[tuple[str, Pet, Task]] = field(default_factory=list)   # (HH:MM, Pet, Task)
     skipped_tasks: list[tuple[Pet, Task]] = field(default_factory=list)
+    conflicts: list[str] = field(default_factory=list)
 
     @property
     def total_time_used(self) -> int:
         """Return the total number of scheduled minutes."""
         return sum(task.duration_minutes for _, _, task in self.slots)
+
+    def add_slot(self, time_str: str, pet: Pet, task: Task) -> None:
+        """Manually place a task at a specific time (may create conflicts)."""
+        self.slots.append((time_str, pet, task))
 
     def display(self) -> None:
         """Print the full schedule to the terminal in a readable format."""
@@ -100,9 +119,9 @@ class DailyPlan:
             if self.owner_name
             else f"Schedule — {self.date}"
         )
-        print(f"\n{'=' * 54}")
+        print(f"\n{'=' * 56}")
         print(f"  {header}")
-        print(f"{'=' * 54}")
+        print(f"{'=' * 56}")
         for time_str, pet, task in self.slots:
             print(
                 f"  {time_str}  {task.name:<22} {task.duration_minutes:>3} min"
@@ -112,8 +131,12 @@ class DailyPlan:
             print(f"\n  Skipped — not enough time ({len(self.skipped_tasks)}):")
             for pet, task in self.skipped_tasks:
                 print(f"    • {task.name} ({task.duration_minutes} min) [{task.priority}] → {pet.name}")
+        if self.conflicts:
+            print(f"\n  Conflicts detected:")
+            for w in self.conflicts:
+                print(f"    {w}")
         print(f"\n  Total: {self.total_time_used} min scheduled")
-        print(f"{'=' * 54}\n")
+        print(f"{'=' * 56}\n")
 
     def summary(self) -> str:
         """Return a one-line summary of the plan."""
@@ -130,8 +153,12 @@ class Scheduler:
         self.owner = owner
         self.plan: DailyPlan | None = None
 
+    # ------------------------------------------------------------------
+    # Core scheduling
+    # ------------------------------------------------------------------
+
     def generate_plan(self, date: str = "today", start_time: str = "08:00") -> DailyPlan:
-        """Sort tasks by priority then duration and fit them into the owner's time budget."""
+        """Sort tasks by priority then duration, fit them into the time budget, detect conflicts."""
         all_tasks = self.owner.get_all_tasks()
         sorted_tasks = sorted(
             all_tasks,
@@ -151,6 +178,7 @@ class Scheduler:
                 plan.skipped_tasks.append((pet, task))
 
         self.plan = plan
+        plan.conflicts = self.detect_conflicts()
         return plan
 
     def explain_plan(self) -> str:
@@ -166,7 +194,72 @@ class Scheduler:
         for time_str, pet, task in self.plan.slots:
             lines.append(f"  {time_str}  {task.name} [{task.priority}] → {pet.name}")
         if self.plan.skipped_tasks:
-            lines.append(f"\nSkipped (exceeded time budget):")
+            lines.append("\nSkipped (exceeded time budget):")
             for pet, task in self.plan.skipped_tasks:
                 lines.append(f"  • {task.name} ({task.duration_minutes} min) → {pet.name}")
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Sorting
+    # ------------------------------------------------------------------
+
+    def sort_by_time(self) -> list[tuple[str, Pet, Task]]:
+        """Return plan slots sorted ascending by start time.
+
+        HH:MM strings sort correctly as plain strings (lexicographic == chronological).
+        """
+        if self.plan is None:
+            return []
+        return sorted(self.plan.slots, key=lambda slot: slot[0])
+
+    # ------------------------------------------------------------------
+    # Filtering
+    # ------------------------------------------------------------------
+
+    def filter_tasks(
+        self,
+        pet_name: str | None = None,
+        completed: bool | None = None,
+    ) -> list[tuple[Pet, Task]]:
+        """Return (pet, task) pairs filtered by pet name and/or completion status.
+
+        Pass pet_name to restrict to one pet; pass completed=True/False to filter
+        by status; pass both to combine filters.
+        """
+        results = self.owner.get_all_tasks()
+        if pet_name is not None:
+            results = [(p, t) for p, t in results if p.name == pet_name]
+        if completed is not None:
+            results = [(p, t) for p, t in results if t.completed == completed]
+        return results
+
+    # ------------------------------------------------------------------
+    # Conflict detection
+    # ------------------------------------------------------------------
+
+    def detect_conflicts(self) -> list[str]:
+        """Return warning strings for any overlapping slots in the current plan.
+
+        Two slots conflict when one starts before the other finishes.
+        Returns an empty list (no crash) if no conflicts exist.
+        """
+        if self.plan is None:
+            return []
+        warnings = []
+        slots = self.plan.slots
+        for i in range(len(slots)):
+            for j in range(i + 1, len(slots)):
+                t_a, pet_a, task_a = slots[i]
+                t_b, pet_b, task_b = slots[j]
+                start_a = _hhmm_to_minutes(t_a)
+                start_b = _hhmm_to_minutes(t_b)
+                end_a = start_a + task_a.duration_minutes
+                end_b = start_b + task_b.duration_minutes
+                if start_a < end_b and start_b < end_a:
+                    warnings.append(
+                        f"⚠ Conflict: '{task_a.name}' ({pet_a.name}, "
+                        f"{t_a}–{_add_minutes(t_a, task_a.duration_minutes)}) overlaps "
+                        f"'{task_b.name}' ({pet_b.name}, "
+                        f"{t_b}–{_add_minutes(t_b, task_b.duration_minutes)})"
+                    )
+        return warnings

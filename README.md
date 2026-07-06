@@ -87,26 +87,30 @@ Sample test output:
 ```
 ============================= test session starts ==============================
 platform darwin -- Python 3.12.6, pytest-9.0.3
-collected 4 items
+collected 9 items
 
-tests/test_pawpal.py::test_mark_complete_changes_status PASSED           [ 25%]
-tests/test_pawpal.py::test_add_task_increases_pet_task_count PASSED      [ 50%]
-tests/test_pawpal.py::test_scheduler_respects_time_budget PASSED         [ 75%]
-tests/test_pawpal.py::test_high_priority_scheduled_before_low PASSED     [100%]
+test_pawpal.py::test_mark_complete_changes_status PASSED                 [ 11%]
+test_pawpal.py::test_add_task_increases_pet_task_count PASSED            [ 22%]
+test_pawpal.py::test_scheduler_respects_time_budget PASSED               [ 33%]
+test_pawpal.py::test_high_priority_scheduled_before_low PASSED           [ 44%]
+test_pawpal.py::test_recurring_daily_task_produces_next_day PASSED       [ 55%]
+test_pawpal.py::test_once_task_returns_none_on_complete PASSED           [ 66%]
+test_pawpal.py::test_filter_tasks_by_pet_name PASSED                     [ 77%]
+test_pawpal.py::test_detect_conflicts_finds_overlap PASSED               [ 88%]
+test_pawpal.py::test_detect_conflicts_no_overlap PASSED                  [100%]
 
-============================== 4 passed in 0.02s ===============================
+============================== 9 passed in 0.02s ===============================
 ```
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Priority + duration sort | `Scheduler.generate_plan()` | Tasks sorted high→medium→low, then shortest first within each tier |
+| Sort by start time | `Scheduler.sort_by_time()` | Returns slots in HH:MM order; HH:MM strings sort correctly as plain strings |
+| Filter by pet / status | `Scheduler.filter_tasks(pet_name, completed)` | Returns `(Pet, Task)` pairs; both filters are optional and combinable |
+| Conflict detection | `Scheduler.detect_conflicts()` | Pairwise overlap check; returns warning strings, never crashes |
+| Recurring tasks | `Task.mark_complete(today)` | Returns a new `Task` for the next occurrence (`+1 day` daily, `+7 days` weekly); returns `None` for one-off tasks |
 
 ## 📸 Demo Walkthrough
 
