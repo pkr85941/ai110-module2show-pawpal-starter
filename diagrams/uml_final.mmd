@@ -1,0 +1,63 @@
+classDiagram
+    class Task {
+        +String name
+        +int duration_minutes
+        +Priority priority
+        +Category category
+        +Frequency frequency
+        +String due_date
+        +bool completed
+        +mark_complete(today: str) Task|None
+        +is_high_priority() bool
+        +__repr__() String
+    }
+
+    class Pet {
+        +String name
+        +String breed
+        +String species
+        +List~Task~ tasks
+        +add_task(task: Task) void
+        +remove_task(task: Task) void
+        +summary() String
+    }
+
+    class Owner {
+        +String name
+        +int available_minutes
+        +List~Pet~ pets
+        +add_pet(pet: Pet) void
+        +get_all_tasks() List~tuple~
+        +set_availability(minutes: int) void
+        +summary() String
+    }
+
+    class DailyPlan {
+        +String date
+        +String owner_name
+        +String start_time
+        +List slots
+        +List skipped_tasks
+        +List~str~ conflicts
+        +int total_time_used
+        +add_slot(time_str, pet, task) void
+        +display() void
+        +summary() String
+    }
+
+    class Scheduler {
+        +Owner owner
+        +DailyPlan|None plan
+        +generate_plan(date, start_time) DailyPlan
+        +explain_plan() String
+        +sort_by_time() List
+        +filter_tasks(pet_name, completed) List
+        +detect_conflicts() List~str~
+    }
+
+    Pet "1" --> "many" Task : owns
+    Owner "1" --> "many" Pet : manages
+    Scheduler "1" --> "1" Owner : reads from
+    Scheduler "1" --> "1" DailyPlan : produces
+    DailyPlan "1" ..> "many" Pet : references
+    DailyPlan "1" ..> "many" Task : references
