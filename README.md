@@ -44,14 +44,32 @@ pip install -r requirements.txt
 
 ## 🖥️ Sample Output
 
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
+Running `python main.py` with two pets (Biscuit and Mochi) and 90 minutes available:
 
 ```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
+======================================================
+  Today's Schedule for Jordan (2026-07-06)
+======================================================
+  08:00  Feeding                  5 min  [high  ]  Mochi
+  08:05  Breakfast               10 min  [high  ]  Biscuit
+  08:15  Morning walk            30 min  [high  ]  Biscuit
+  08:45  Playtime                20 min  [medium]  Mochi
+  09:05  Nail trim               10 min  [low   ]  Mochi
+  09:15  Brush coat              15 min  [low   ]  Biscuit
+
+  Total: 90 min scheduled
+======================================================
+
+Plan for Jordan on 2026-07-06.
+Available time: 90 min.
+Tasks sorted by priority (high → medium → low), then shortest first.
+
+  08:00  Feeding [high] → Mochi
+  08:05  Breakfast [high] → Biscuit
+  08:15  Morning walk [high] → Biscuit
+  08:45  Playtime [medium] → Mochi
+  09:05  Nail trim [low] → Mochi
+  09:15  Brush coat [low] → Biscuit
 ```
 
 ## 🧪 Testing PawPal+
@@ -67,7 +85,16 @@ pytest --cov
 Sample test output:
 
 ```
-# Paste your pytest output here
+============================= test session starts ==============================
+platform darwin -- Python 3.12.6, pytest-9.0.3
+collected 4 items
+
+tests/test_pawpal.py::test_mark_complete_changes_status PASSED           [ 25%]
+tests/test_pawpal.py::test_add_task_increases_pet_task_count PASSED      [ 50%]
+tests/test_pawpal.py::test_scheduler_respects_time_budget PASSED         [ 75%]
+tests/test_pawpal.py::test_high_priority_scheduled_before_low PASSED     [100%]
+
+============================== 4 passed in 0.02s ===============================
 ```
 
 ## 📐 Smarter Scheduling
