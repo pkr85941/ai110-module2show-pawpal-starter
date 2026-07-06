@@ -136,14 +136,50 @@ The suite covers all core behaviors — priority sorting, time budget, recurrenc
 | Conflict detection | `Scheduler.detect_conflicts()` | Pairwise overlap check; returns warning strings, never crashes |
 | Recurring tasks | `Task.mark_complete(today)` | Returns a new `Task` for the next occurrence (`+1 day` daily, `+7 days` weekly); returns `None` for one-off tasks |
 
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| Owner + pet management | Add an owner with a daily time budget, then add multiple pets to their household |
+| Task creation | Assign tasks to specific pets with name, duration, priority, category, and frequency (daily / weekly / once) |
+| Smart scheduling | Tasks are sorted by priority (high → medium → low) then by duration (shortest first); greedy assignment fills the time budget |
+| Conflict detection | After scheduling, the app checks every pair of slots for time overlap and displays a warning for each conflict |
+| Sort by start time | Toggle to redisplay the schedule sorted chronologically rather than by priority |
+| Task filtering | Filter the task list by pet name and/or completion status |
+| Recurring tasks | Completing a daily or weekly task returns a new task instance with the next due date pre-filled |
+| Reasoning display | An expandable "Why this order?" section explains every scheduling decision in plain language |
+
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### UI workflow (Streamlit — `streamlit run app.py`)
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+1. **Enter owner info** — type your name and how many minutes you have free today, then click "Save owner info." The app stores this in session state so it persists across button clicks.
+2. **Add pets** — fill in a pet name, breed, and species, then click "Add pet." Repeat for each pet. Each pet appears in the sidebar summary immediately.
+3. **Add tasks** — choose which pet the task belongs to, enter a name, duration, priority, category, and frequency, then click "Add task." Tasks accumulate and are visible in the Task Overview.
+4. **Filter tasks** — use the "Filter by pet" and "Filter by status" dropdowns in the Task Overview to zero in on incomplete high-priority tasks, or all tasks for one pet.
+5. **Generate schedule** — set a start time (default 08:00), optionally tick "Sort display by start time," and click "Generate schedule." The app calls `Scheduler.generate_plan()`, shows the sorted schedule as a table, flags any conflicts in amber warnings, and lists skipped tasks in an expander.
+6. **Read the reasoning** — expand "Why this order?" to see `Scheduler.explain_plan()` output: which tasks were chosen, in what order, and why.
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+### CLI workflow (`python main.py`)
+
+```
+========================================================
+  Today's Schedule for Jordan (2026-07-06)
+========================================================
+  08:00  Feeding                  5 min  [high  ]  Mochi
+  08:05  Breakfast               10 min  [high  ]  Biscuit
+  08:15  Morning walk            30 min  [high  ]  Biscuit
+  08:45  Playtime                20 min  [medium]  Mochi
+  09:05  Nail trim               10 min  [low   ]  Mochi
+  09:15  Brush coat              15 min  [low   ]  Biscuit
+
+  Total: 90 min scheduled
+========================================================
+
+--- Recurring task completed ---
+  'Morning walk' marked done for 2026-07-06.
+  Next occurrence created: 'Morning walk' due 2026-07-07
+
+--- Conflict detection demo ---
+  ⚠ Conflict: 'Vet appointment' (Biscuit, 09:00–09:45) overlaps 'Training session' (Biscuit, 09:15–09:45)
+```

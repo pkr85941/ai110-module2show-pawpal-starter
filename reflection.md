@@ -52,13 +52,21 @@ The conflict detector checks only for **exact time-slot overlap** — it compare
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+AI was used at every phase of the project, but in different roles at each stage:
+
+- **Design brainstorming (Phase 1):** Asked the AI to identify the main objects in the system and suggest their attributes and methods. The AI produced a clear first draft of the five classes quickly, which gave us a concrete starting point to react to rather than a blank page.
+- **Skeleton review (Phase 2):** Attached `pawpal_system.py` and asked the AI to flag missing relationships or logic bottlenecks. This produced three actionable findings — the missing `start_time`, the missing `pet_name` on `DailyPlan`, and the value-equality ambiguity in `remove_task()`.
+- **Algorithm design (Phase 4):** Asked the AI how to use a `lambda` key with `sorted()` for HH:MM strings. The AI correctly explained that lexicographic ordering works for HH:MM — a non-obvious fact that saved time.
+- **Test drafting (Phase 5):** Asked the AI for a test plan focused on edge cases (zero tasks, exact same start time). The resulting tests caught real gaps in coverage.
+- **Most effective prompt pattern:** Attaching a file and asking "what's missing or could go wrong?" consistently produced more useful output than open-ended "help me build X" prompts, because it forced the AI to react to real code rather than invent a generic answer.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+The clearest moment of rejection was around `remove_task()`. The AI's initial suggestion used `self.tasks.remove(task)`, which removes by value equality. Because `Task` is a dataclass, two tasks with identical field values are considered equal — so `remove_task()` could silently delete the wrong task if duplicates existed. The AI's suggestion would have passed a basic test but introduced a subtle bug in real use. The fix was to replace it with an identity check: `self.tasks = [t for t in self.tasks if t is not task]`. This was verified by writing a test that added two tasks with identical values, removed one by reference, and confirmed only one remained.
+
+A second moment: the AI suggested having `Scheduler` take both `Owner` and `Pet` as constructor arguments (mirroring the original skeleton). This was rejected because it implied the scheduler could only handle one pet. Passing only `Owner` — and having it expose `get_all_tasks()` — kept the design open to multiple pets without changing the Scheduler's interface.
+
+**How separate chat sessions helped:** Keeping Phase 1 design, Phase 3 implementation, and Phase 5 testing in separate sessions prevented earlier context from bleeding into later questions. When asking "what edge cases should I test?", the AI gave sharper answers because it wasn't also trying to remember the design decisions from three phases earlier.
 
 ---
 
@@ -66,13 +74,21 @@ The conflict detector checks only for **exact time-slot overlap** — it compare
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+The 12-test suite covers:
+
+- **Core data operations:** `mark_complete()` changes the `completed` flag; `add_task()` grows the task list.
+- **Scheduling correctness:** The greedy algorithm respects the time budget; high-priority tasks are placed before low-priority ones.
+- **Recurrence logic:** Daily tasks return a next-day instance; one-off tasks return `None`.
+- **Filtering:** `filter_tasks(pet_name=...)` returns only tasks belonging to the named pet.
+- **Conflict detection:** Overlapping slots produce warnings; back-to-back slots do not; identical start times are caught.
+- **Sort order:** `sort_by_time()` returns slots in strict chronological order regardless of insertion order.
+- **Edge case — zero tasks:** An owner with a pet but no tasks produces an empty, valid `DailyPlan` with no errors.
+
+These tests matter because the scheduling logic is the core value of the app. A bug in priority ordering or time-budget enforcement would produce a plan that looks plausible but misleads the user — exactly the kind of failure that is hard to notice without automated checks.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+**4 / 5 stars.** The suite covers all stated behaviors with both happy paths and edge cases. The missing star reflects two known limitations: (1) conflict detection does not account for buffer time between tasks, so a "Walk (30 min) at 09:00" followed by "Feed at 09:30" could conflict in practice but not in code; (2) `remove_task()` is fixed for identity but there is still no unique-ID system, which could cause subtle issues if the same task object is added to multiple pets. Next tests would cover: filtering by completed status, weekly recurrence producing a 7-day offset, and scheduling behavior when all tasks have equal priority.
 
 ---
 
@@ -80,12 +96,16 @@ The conflict detector checks only for **exact time-slot overlap** — it compare
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+The cleanest part of the project is the separation between the five classes. Because `Task` is pure data, `Pet` owns its tasks, `Owner` aggregates pets, `Scheduler` handles all logic, and `DailyPlan` is a pure output object, each part could be built and tested independently. The `filter_tasks()` and `detect_conflicts()` methods required no changes to any other class — they were added to `Scheduler` without touching `Task`, `Pet`, or `DailyPlan`. That separation is the part of the design most worth keeping.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+Two things stand out for a next iteration:
+
+1. **Unique task IDs.** Every `Task` should carry a UUID generated at creation time. This would make `remove_task()` unambiguous and make it possible to track which specific instance was completed (important for recurring tasks, where two instances of "Morning walk" are otherwise indistinguishable).
+2. **Buffer time on tasks.** A `buffer_after_minutes: int = 0` field on `Task` would let the conflict detector catch cases like scheduling a vigorous walk immediately before feeding — currently invisible to the system.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+The most important thing learned is that AI accelerates production but does not replace architecture decisions. AI generated correct code quickly at every step, but it could not decide: which class should own the task list, whether conflict detection should raise exceptions or return strings, or whether `recurring: bool` was too coarse a field. Those decisions required understanding the full system — what each class was responsible for, what would make testing easier, what a pet owner actually needs to see. The human role in this project was not to write code; it was to decide what the code should mean. That role did not shrink as the AI's contributions grew.
+
