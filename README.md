@@ -76,31 +76,55 @@ Tasks sorted by priority (high → medium → low), then shortest first.
 
 ```bash
 # Run the full test suite:
-pytest
+python -m pytest
 
 # Run with coverage:
-pytest --cov
+python -m pytest --cov
 ```
 
-Sample test output:
+### What the tests cover
+
+| Test | Behaviour verified |
+|------|--------------------|
+| `test_mark_complete_changes_status` | `completed` flips to `True` after `mark_complete()` |
+| `test_add_task_increases_pet_task_count` | `Pet.add_task()` grows the task list correctly |
+| `test_scheduler_respects_time_budget` | Tasks that exceed the budget land in `skipped_tasks` |
+| `test_high_priority_scheduled_before_low` | Priority ordering is respected in the generated plan |
+| `test_recurring_daily_task_produces_next_day` | Daily task returns a new task due the following day |
+| `test_once_task_returns_none_on_complete` | One-off task returns `None` (no next occurrence) |
+| `test_filter_tasks_by_pet_name` | `filter_tasks()` isolates tasks for one pet |
+| `test_detect_conflicts_finds_overlap` | Overlapping slots produce a conflict warning |
+| `test_detect_conflicts_no_overlap` | Back-to-back slots produce no warnings |
+| `test_sort_by_time_returns_chronological_order` | `sort_by_time()` returns slots in HH:MM ascending order |
+| `test_pet_with_no_tasks_produces_empty_plan` | A pet with zero tasks generates an empty, valid plan |
+| `test_exact_same_start_time_is_a_conflict` | Identical start times are correctly flagged |
+
+### Test run output
 
 ```
 ============================= test session starts ==============================
 platform darwin -- Python 3.12.6, pytest-9.0.3
-collected 9 items
+collected 12 items
 
-test_pawpal.py::test_mark_complete_changes_status PASSED                 [ 11%]
-test_pawpal.py::test_add_task_increases_pet_task_count PASSED            [ 22%]
-test_pawpal.py::test_scheduler_respects_time_budget PASSED               [ 33%]
-test_pawpal.py::test_high_priority_scheduled_before_low PASSED           [ 44%]
-test_pawpal.py::test_recurring_daily_task_produces_next_day PASSED       [ 55%]
-test_pawpal.py::test_once_task_returns_none_on_complete PASSED           [ 66%]
-test_pawpal.py::test_filter_tasks_by_pet_name PASSED                     [ 77%]
-test_pawpal.py::test_detect_conflicts_finds_overlap PASSED               [ 88%]
-test_pawpal.py::test_detect_conflicts_no_overlap PASSED                  [100%]
+test_pawpal.py::test_mark_complete_changes_status PASSED                 [  8%]
+test_pawpal.py::test_add_task_increases_pet_task_count PASSED            [ 16%]
+test_pawpal.py::test_scheduler_respects_time_budget PASSED               [ 25%]
+test_pawpal.py::test_high_priority_scheduled_before_low PASSED           [ 33%]
+test_pawpal.py::test_recurring_daily_task_produces_next_day PASSED       [ 41%]
+test_pawpal.py::test_once_task_returns_none_on_complete PASSED           [ 50%]
+test_pawpal.py::test_filter_tasks_by_pet_name PASSED                     [ 58%]
+test_pawpal.py::test_detect_conflicts_finds_overlap PASSED               [ 66%]
+test_pawpal.py::test_detect_conflicts_no_overlap PASSED                  [ 75%]
+test_pawpal.py::test_sort_by_time_returns_chronological_order PASSED     [ 83%]
+test_pawpal.py::test_pet_with_no_tasks_produces_empty_plan PASSED        [ 91%]
+test_pawpal.py::test_exact_same_start_time_is_a_conflict PASSED          [100%]
 
-============================== 9 passed in 0.02s ===============================
+============================== 12 passed in 0.02s ===============================
 ```
+
+### Confidence level: ⭐⭐⭐⭐ (4/5)
+
+The suite covers all core behaviors — priority sorting, time budget, recurrence, filtering, conflict detection — and explicitly tests both happy paths and edge cases (zero tasks, identical start times). One star withheld because conflict detection only checks exact time overlap and does not account for buffer time or logical incompatibilities between task types.
 
 ## 📐 Smarter Scheduling
 

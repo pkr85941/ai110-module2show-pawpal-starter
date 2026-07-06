@@ -98,3 +98,46 @@ def test_detect_conflicts_no_overlap():
     scheduler.plan.add_slot("09:30", pet, Task("Feed",  10, priority="high"))
     warnings = scheduler.detect_conflicts()
     assert warnings == []
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 edge cases
+# ---------------------------------------------------------------------------
+
+def test_sort_by_time_returns_chronological_order():
+    """sort_by_time() must return slots in HH:MM ascending order."""
+    owner = Owner(name="Jordan", available_minutes=120)
+    pet = Pet(name="Biscuit", breed="Golden Retriever")
+    owner.add_pet(pet)
+    scheduler = Scheduler(owner)
+    # Manually build a plan with slots added out of order
+    scheduler.plan = DailyPlan(date="2026-07-06", owner_name="Jordan")
+    scheduler.plan.add_slot("10:00", pet, Task("Grooming", 15, priority="low"))
+    scheduler.plan.add_slot("08:00", pet, Task("Walk",     30, priority="high"))
+    scheduler.plan.add_slot("09:00", pet, Task("Feed",     10, priority="high"))
+    sorted_slots = scheduler.sort_by_time()
+    times = [t for t, _, _ in sorted_slots]
+    assert times == ["08:00", "09:00", "10:00"]
+
+
+def test_pet_with_no_tasks_produces_empty_plan():
+    """A pet added to the owner but given no tasks should produce an empty schedule."""
+    owner = Owner(name="Jordan", available_minutes=60)
+    owner.add_pet(Pet(name="Biscuit", breed="Golden Retriever"))
+    plan = Scheduler(owner).generate_plan()
+    assert len(plan.slots) == 0
+    assert len(plan.skipped_tasks) == 0
+    assert plan.total_time_used == 0
+
+
+def test_exact_same_start_time_is_a_conflict():
+    """Two tasks placed at identical start times must be flagged as conflicting."""
+    owner = Owner(name="Jordan", available_minutes=120)
+    pet = Pet(name="Mochi", breed="Siamese Cat", species="cat")
+    owner.add_pet(pet)
+    scheduler = Scheduler(owner)
+    scheduler.plan = DailyPlan(date="2026-07-06", owner_name="Jordan")
+    scheduler.plan.add_slot("09:00", pet, Task("Feed",     5, priority="high"))
+    scheduler.plan.add_slot("09:00", pet, Task("Playtime", 20, priority="medium"))
+    warnings = scheduler.detect_conflicts()
+    assert len(warnings) == 1
